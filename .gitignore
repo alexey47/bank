@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # Folders
 [Dd]ata
+
+# Files
+sms_dataset*.txt
