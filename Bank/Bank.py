@@ -6,10 +6,9 @@ from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from math import ceil
+from difflib import SequenceMatcher
 
-
-#   TODO: Объединить шаблоны одного кластера
-now = datetime.now().strftime("%Y%m%d%H%M")
+now = datetime.now().strftime("%Y%m%d%H%M%S")
 
 #region Functions
 # Подготовка строк к векторизации
@@ -31,7 +30,7 @@ def kmeans_clustering(dataset:list, n_clusters:int, save_to_file:bool=False) -> 
     """
 
     # Создание модели
-    tfidf_vectorizer = TfidfVectorizer(preprocessor=preprocessing, token_pattern = r"\b\S{2,}\b")
+    tfidf_vectorizer = TfidfVectorizer(preprocessor=preprocessing, token_pattern = r"\b\S{1,}\b")
     tfidf = tfidf_vectorizer.fit_transform(dataset)
     kmeans = KMeans(n_clusters = n_clusters, max_iter = 500).fit(tfidf)
 
@@ -58,14 +57,14 @@ def kmeans_clustering(dataset:list, n_clusters:int, save_to_file:bool=False) -> 
 def cluster_key_words_extractor(cluster:list) -> list:
     r""" Функция извлечения ключевых слов из кластера
     Параметры:
-        cluster - список сообщений
+        cluster - список текстовых данных
 
     Возвращает:
         Список ключевых слов
     """
 
     # Вектроизация слов
-    vectorizer = TfidfVectorizer(preprocessor = preprocessing, token_pattern = r"\b\S{2,}\b")
+    vectorizer = TfidfVectorizer(preprocessor = preprocessing, token_pattern = r"\b\S{1,}\b")
     tfidf = vectorizer.fit_transform(cluster)
 
     # Ниже страшные вещи (желательно исправить)
@@ -125,38 +124,139 @@ def regex_maker(line:str, key_words:list, ex_key_words:list=[]) -> str:
             else:
                 new_line += "%w "
 
-    #new_line, line = (new_line + "_").split(), ""
+    new_line, line = (new_line + "_").split(), ""
 
-    #index = 0
-    #while index < len(new_line):
-    #    if new_line[index] == "%d":
-    #        rept = 1
-    #        while index < len(new_line) and new_line[index + 1] == "%d":
-    #            rept += 1
-    #            index += 1
-    #        if rept == 1:
-    #            line += "%d "
-    #        else:
-    #            line += "%d{{1,{}}} ".format(rept)
-    #    elif new_line[index] == "%w":
-    #        rept = 1
-    #        while index < len(new_line) and new_line[index + 1] == "%w":
-    #            rept += 1
-    #            index += 1
-    #        if rept == 1:
-    #            line += "%w "
-    #        else:
-    #            line += "%w{{1,{}}} ".format(rept)
-    #    elif new_line[index] == "_":
-    #        break
-    #    else:
-    #        line += "{} ".format(new_line[index])
-    #    index += 1
+    index = 0
+    while index < len(new_line):
+        if new_line[index] == "%d":
+            rept = 1
+            while index < len(new_line) and new_line[index + 1] == "%d":
+                rept += 1
+                index += 1
+            if rept == 1:
+                #line += "%d "
+                line += "%d1 "
+            else:
+                #line += "%d{{1,{}}} ".format(rept)
+                line += "%d{} ".format(rept)
+        elif new_line[index] == "%w":
+            rept = 1
+            while index < len(new_line) and new_line[index + 1] == "%w":
+                rept += 1
+                index += 1
+            if rept == 1:
+                #line += "%w "
+                line += "%w1 "
+            else:
+                #line += "%w{{1,{}}} ".format(rept)
+                line += "%w{} ".format(rept)
+        elif new_line[index] == "_":
+            break
+        else:
+            line += "{} ".format(new_line[index])
+        index += 1
 
-    return new_line #line
+    return line
 
+# Функция включения одного регулярного выражения в другое
+def regex_union(str1:str, str2:str) -> str:
+    r""" Функция объединения двух регулярных выражений по наибольшему вхождению символа
+    Параметры:
+        str1 - первая строка, содержащая регулярное выражение
+        str2 - вторая строка, содержащая регулярное выражение
 
+    Возвращает:
+        Строку содержащую регулярное выражение
+    """
+
+    str1 = str1.split()
+    str2 = str2.split()
+
+    result = ""
+    for x in range(len(str1)):
+        if str1[x] == str2[x]:
+            result += "{} ".format(str1[x])
+        elif (re.match("%w\d+", str1[x]) and re.match("%w\d+", str2[x])) or (re.match("%d\d+", str1[x]) and re.match("%d\d+", str2[x])):
+            symbol = re.findall(r'\w', str1[x])
+            num1 = re.findall(r'\d+', str1[x])
+            num2 = re.findall(r'\d+', str2[x])
+            result += "%{}{} ".format(symbol[0], num1[0]) if num1 > num2 else "%{}{} ".format(symbol[0], num2[0])
+        else:
+            return None
+
+    return result
+
+# Финальные обработка регулярного выражения перед выводом
+def regex_postprocessing(templates:list) -> list:
+    r""" Функция конечной обработки регулярных выражений
+    Параметры:
+        templates - список текстовых данных, содержащих регулярные выражения
+        
+    Возвращает:
+        Список регулярных выражений
+    """
+
+    tmp_templates = []
+    for template in templates:
+        tmp = ""
+        for word in template.split():
+            if re.match('%w\d+', word):
+                num = re.findall(r'\d+', word)[0]
+                if num == '1':
+                    tmp += "%w "
+                else:
+                    tmp += "%w{{1,{}}} ".format(num)
+            elif re.match('%d\d+', word):
+                num = re.findall(r'\d+', word)[0]
+                if num == '1':
+                    tmp += "%d "
+                else:
+                    tmp += "%d{{1,{}}} ".format(num)
+            else:
+                tmp += "{} ".format(word)
+        tmp_templates.append(tmp)
+    return tmp_templates
+
+# Функция обработки шаблонов
+def regex_combiner(templates:list) -> list:
+    r""" Функция объединения и обработки регулярных выражений, из большого количества регулярных выражений, делает поменьше
+    Параметры:
+        templates - список регулярных выражений
+
+    Возвращает:
+        Список регулярных выражений
+    """
+    
+    tmp_templates = []
+    for j in range(10):
+        if len(templates) == 0:
+            break
+        counter = 0
+        first = templates.pop(0)
+        index = 0
+        while index < len(templates):
+            if SequenceMatcher(a=first, b=templates[index]).ratio() > 0.9 and len(first.split()) == len(templates[index].split()):
+                tmp = regex_union(first, templates[index])
+                if tmp == None:
+                    index += 1
+                    continue
+                else:
+                    first = tmp
+                templates.remove(templates[index])
+                counter += 1
+                if index > 1:
+                    index -= 1
+                else:
+                    index = 0
+            else: 
+                index += 1
+
+        if counter != 0:
+            tmp_templates.append(first)
+    return regex_postprocessing(tmp_templates)
 #endregion
+
+
 def main(argv):
     if len(argv) < 3:
         print("Missing args")
@@ -167,32 +267,40 @@ def main(argv):
     
     print("Clustering.")
     dataset = open(argv[1], encoding = "utf-8").read().split("\n")
-    clusters = kmeans_clustering(dataset, int(argv[2]), True)
+    clusters = kmeans_clustering(dataset, int(argv[2]))
 
     # Шаблонизация
-    print("Create templates.")
+    print("Creating templates.")
     os.makedirs("Data\\Data_{}\\Templates".format(now), exist_ok=True)
+    all_templates = []
     for i, cluster in enumerate(clusters):
+        print("\tCluster [{} / {}]:\t0%   ".format(i + 1, len(clusters)), end = "\r")  # progress bar
         key_words_list = cluster_key_words_extractor(cluster)
         
         templates = []
         for j, line in enumerate(cluster):
-            templates.append(regex_maker(line, key_words_list, ['rur']))
-            print("\tCluster [{} / {}]:\t{}%".format(i + 1, len(clusters), ceil(j / len(cluster) * 100)), end = "\r")  # progress bar
-        print("\tCluster [{} / {}]:\t100%".format(i + 1, len(clusters)), end = "\r")  # progress bar
+            templates.append(regex_maker(line, key_words_list))
+            print("\tCluster [{} / {}]:\t{}% ".format(i + 1, len(clusters), ceil(j / len(cluster) * 99)), end = "\r")  # progress bar
+        
+        templates = regex_combiner(templates)
+        all_templates.extend(templates)
 
-        
-        
-        # Сохранение шаблонов в файл (Надо чтобы все шаблоны попадали в один
-        # файл, для этого нужно объеденить все шаблоны одного кластера в 1-2
-        # шаблона)
+        # Сохранение шаблонов по кластерам
         file = open("Data\\Data_{}\\Templates\\cluster_{}.txt".format(now, i), "w", encoding = "utf-8")
         for line in templates:
             file.write("{}\n".format(line))
         file.close()
+        print("\tCluster [{} / {}]:\t100% ".format(i + 1, len(clusters)), end = "\r")  # progress bar
+
+    # Сохранение всех шаблонов в один файл
+    file = open("Data\\Data_{0}\\templates_{0}.txt".format(now), "w", encoding = "utf-8")
+    for line in all_templates:
+        file.write("{}\n".format(line))
+    file.close()
 
     print()
     print("Done.")
 
 #main(sys.argv)
-main(["", "Xmpls\\sms_dataset_10000.txt", 28])
+main(["", "Xmpls\\sms_dataset_1000.txt", 28])
+
