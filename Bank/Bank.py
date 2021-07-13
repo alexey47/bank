@@ -1,10 +1,12 @@
 import re
 import os
 import sys
+import string
 from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from math import ceil
+
 
 #   TODO: Объединить шаблоны одного кластера
 now = datetime.now().strftime("%Y%m%d%H%M")
@@ -13,13 +15,14 @@ now = datetime.now().strftime("%Y%m%d%H%M")
 # Подготовка строк к векторизации
 def preprocessing(line:str):
     line = line.lower()
+    line = re.sub(r"[{}]".format(string.punctuation), "", line)
     return line
 
 # Кластеризация
-def kmeans_clustering(dataset_path:str, n_clusters:int, save_to_file:bool=False):
+def kmeans_clustering(dataset:list, n_clusters:int, save_to_file:bool=False) -> list:
     r""" Функция кластеризации набора данных
     Параметры:
-        dataset_path - путь к набору данных
+        dataset - список данных
         n_clusters - количество кластеров
         save_to_file - сохранять ли кластеры в файлы?
 
@@ -28,13 +31,12 @@ def kmeans_clustering(dataset_path:str, n_clusters:int, save_to_file:bool=False)
     """
 
     # Создание модели
-    dataset = open(dataset_path, encoding = "utf-8").read().split("\n")
     tfidf_vectorizer = TfidfVectorizer(preprocessor=preprocessing, token_pattern = r"\b\S{2,}\b")
     tfidf = tfidf_vectorizer.fit_transform(dataset)
     kmeans = KMeans(n_clusters = n_clusters, max_iter = 500).fit(tfidf)
 
     # Список списков
-    clusters = [None] * len(set(kmeans.labels_))
+    clusters = [None] * n_clusters
     for index in range(len(dataset)):
         if clusters[kmeans.labels_[index]] == None:
             clusters[kmeans.labels_[index]] = [dataset[index]]
@@ -53,8 +55,14 @@ def kmeans_clustering(dataset_path:str, n_clusters:int, save_to_file:bool=False)
     return clusters
 
 # Извлечение ключевых слов из кластера
-def cluster_key_words_extractor(cluster:list):
-    r""" Description """
+def cluster_key_words_extractor(cluster:list) -> list:
+    r""" Функция извлечения ключевых слов из кластера
+    Параметры:
+        cluster - список сообщений
+
+    Возвращает:
+        Список ключевых слов
+    """
 
     # Вектроизация слов
     vectorizer = TfidfVectorizer(preprocessor = preprocessing, token_pattern = r"\b\S{2,}\b")
@@ -86,8 +94,16 @@ def cluster_key_words_extractor(cluster:list):
     return key_words
 
 # Шаблонизатор строки по ключевым словам
-def regex_maker(line:str, key_words:list, ex_key_words:list=[]):
-    r""" Description """
+def regex_maker(line:str, key_words:list, ex_key_words:list=[]) -> str:
+    r""" Функция генерации регулярного выражения
+    Параметры:
+        line - список сообщений
+        key_words - список ключевых слов, которые должны сохраниться в строке
+        ex_key_words - список слов, которые должны быть заменены (по-умолчанию - [])
+
+    Возвращает:
+        Регулярное выражение для данной строки, включая один список слов и исключая другой
+    """
 
     # Удаление "лишних"(?) символов
     line = re.sub(r"[!№#%.,:;*?\\/()+-]", "", line).replace('>', '').replace('<', '')
@@ -109,38 +125,38 @@ def regex_maker(line:str, key_words:list, ex_key_words:list=[]):
             else:
                 new_line += "%w "
 
-    #line, new_line = (new_line + "_").split(), ""
-    new_line, line = (new_line + "_").split(), ""
+    #new_line, line = (new_line + "_").split(), ""
 
-    index = 0
-    while index < len(new_line):
-        if new_line[index] == "%d":
-            rept = 1
-            while index < len(new_line) and new_line[index + 1] == "%d":
-                rept += 1
-                index += 1
-            if rept == 1:
-                line += "%d "
-            else:
-                line += "%d{{1,{}}} ".format(rept)
-        elif new_line[index] == "%w":
-            rept = 1
-            while index < len(new_line) and new_line[index + 1] == "%w":
-                rept += 1
-                index += 1
-            if rept == 1:
-                line += "%w "
-            else:
-                line += "%w{{1,{}}} ".format(rept)
-        elif new_line[index] == "_":
-            break
-        else:
-            line += "{} ".format(new_line[index])
-        index += 1
+    #index = 0
+    #while index < len(new_line):
+    #    if new_line[index] == "%d":
+    #        rept = 1
+    #        while index < len(new_line) and new_line[index + 1] == "%d":
+    #            rept += 1
+    #            index += 1
+    #        if rept == 1:
+    #            line += "%d "
+    #        else:
+    #            line += "%d{{1,{}}} ".format(rept)
+    #    elif new_line[index] == "%w":
+    #        rept = 1
+    #        while index < len(new_line) and new_line[index + 1] == "%w":
+    #            rept += 1
+    #            index += 1
+    #        if rept == 1:
+    #            line += "%w "
+    #        else:
+    #            line += "%w{{1,{}}} ".format(rept)
+    #    elif new_line[index] == "_":
+    #        break
+    #    else:
+    #        line += "{} ".format(new_line[index])
+    #    index += 1
 
-    return line
+    return new_line #line
+
+
 #endregion
-
 def main(argv):
     if len(argv) < 3:
         print("Missing args")
@@ -150,7 +166,8 @@ def main(argv):
     print("Start.")
     
     print("Clustering.")
-    clusters = kmeans_clustering(argv[1], int(argv[2]))
+    dataset = open(argv[1], encoding = "utf-8").read().split("\n")
+    clusters = kmeans_clustering(dataset, int(argv[2]), True)
 
     # Шаблонизация
     print("Create templates.")
@@ -160,11 +177,15 @@ def main(argv):
         
         templates = []
         for j, line in enumerate(cluster):
-            templates.append(regex_maker(line, key_words_list))
+            templates.append(regex_maker(line, key_words_list, ['rur']))
             print("\tCluster [{} / {}]:\t{}%".format(i + 1, len(clusters), ceil(j / len(cluster) * 100)), end = "\r")  # progress bar
         print("\tCluster [{} / {}]:\t100%".format(i + 1, len(clusters)), end = "\r")  # progress bar
+
         
-        # Сохранение шаблонов в файл (Надо чтобы все шаблоны попадали в один файл, для этого нужно объеденить все шаблоны одного кластера в 1-2 шаблона)
+        
+        # Сохранение шаблонов в файл (Надо чтобы все шаблоны попадали в один
+        # файл, для этого нужно объеденить все шаблоны одного кластера в 1-2
+        # шаблона)
         file = open("Data\\Data_{}\\Templates\\cluster_{}.txt".format(now, i), "w", encoding = "utf-8")
         for line in templates:
             file.write("{}\n".format(line))
@@ -174,4 +195,4 @@ def main(argv):
     print("Done.")
 
 #main(sys.argv)
-main(["", "Xmpls\\sms_dataset_25000.txt", 28])
+main(["", "Xmpls\\sms_dataset_10000.txt", 28])
