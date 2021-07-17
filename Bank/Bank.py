@@ -199,7 +199,7 @@ def regex_postprocessing(templates:list) -> list:
     tmp_templates = []
     for template in templates:
         tmp = ""
-        for word in template.split():
+        for word in template[0].split():
             if re.match('%w\d+', word):
                 num = re.findall(r'\d+', word)[0]
                 if num == '1':
@@ -214,7 +214,7 @@ def regex_postprocessing(templates:list) -> list:
                     tmp += "%d{{1,{}}} ".format(num)
             else:
                 tmp += "{} ".format(word)
-        tmp_templates.append(tmp)
+        tmp_templates.append([tmp, template[1]])
     return tmp_templates
 
 # Функция обработки шаблонов
@@ -224,7 +224,7 @@ def regex_combiner(templates:list) -> list:
         templates - список регулярных выражений
 
     Возвращает:
-        Список регулярных выражений
+        Список [регулярное выражение, количество строк]
     """
     
     tmp_templates = []
@@ -252,7 +252,7 @@ def regex_combiner(templates:list) -> list:
                 index += 1
 
         if counter != 0:
-            tmp_templates.append(first)
+            tmp_templates.append([first, counter])
     return regex_postprocessing(tmp_templates)
 #endregion
 
@@ -288,19 +288,19 @@ def main(argv):
         # Сохранение шаблонов по кластерам
         file = open("Data\\Data_{}\\Templates\\cluster_{}.txt".format(now, i), "w", encoding = "utf-8")
         for line in templates:
-            file.write("{}\n".format(line))
+            file.write("({})-\t{}\n".format(line[1], line[0]))
         file.close()
         print("\tCluster [{} / {}]:\t100% ".format(i + 1, len(clusters)), end = "\r")  # progress bar
 
     # Сохранение всех шаблонов в один файл
     file = open("Data\\Data_{0}\\templates_{0}.txt".format(now), "w", encoding = "utf-8")
     for line in all_templates:
-        file.write("{}\n".format(line))
+        file.write("({})-\t{}\n".format(line[1], line[0]))
     file.close()
 
     print()
     print("Done.")
 
 #main(sys.argv)
-main(["", "Xmpls\\sms_dataset_1000.txt", 28])
+main(["", "Xmpls\\sms_dataset_10000.txt", 28])
 
