@@ -252,7 +252,7 @@ def regex_combiner(templates:list) -> list:
                 index += 1
 
         if counter != 0:
-            tmp_templates.append([first, counter])
+            tmp_templates.append([first, counter + 1])
     return regex_postprocessing(tmp_templates)
 #endregion
 
