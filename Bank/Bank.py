@@ -134,10 +134,8 @@ def regex_maker(line:str, key_words:list, ex_key_words:list=[]) -> str:
                 rept += 1
                 index += 1
             if rept == 1:
-                #line += "%d "
                 line += "%d1 "
             else:
-                #line += "%d{{1,{}}} ".format(rept)
                 line += "%d{} ".format(rept)
         elif new_line[index] == "%w":
             rept = 1
@@ -145,10 +143,8 @@ def regex_maker(line:str, key_words:list, ex_key_words:list=[]) -> str:
                 rept += 1
                 index += 1
             if rept == 1:
-                #line += "%w "
                 line += "%w1 "
             else:
-                #line += "%w{{1,{}}} ".format(rept)
                 line += "%w{} ".format(rept)
         elif new_line[index] == "_":
             break
@@ -271,7 +267,7 @@ def main(argv):
 
     # Шаблонизация
     print("Creating templates.")
-    os.makedirs("Data\\Data_{}\\Templates".format(now), exist_ok=True)
+    os.makedirs("Data\\Data_{}\\Templates".format(now), exist_ok = True)
     all_templates = []
     for i, cluster in enumerate(clusters):
         print("\tCluster [{} / {}]:\t0%   ".format(i + 1, len(clusters)), end = "\r")  # progress bar
@@ -302,5 +298,3 @@ def main(argv):
     print("Done.")
 
 #main(sys.argv)
-main(["", "Xmpls\\sms_dataset_10000.txt", 28])
-
