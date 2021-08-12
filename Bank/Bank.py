@@ -297,4 +297,4 @@ def main(argv):
     print()
     print("Done.")
 
-#main(sys.argv)
+main(sys.argv)
