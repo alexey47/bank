@@ -39,7 +39,7 @@
       <Architecture>X64</Architecture>
     </Interpreter>
   </ItemGroup>
-    <ItemGroup>
+  <ItemGroup>
     <Folder Include="src\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
