@@ -122,10 +122,8 @@ def regex_maker(line:str, key_words:list, ex_key_words:list=[]) -> str:
                 rept += 1
                 index += 1
             if rept == 1:
-                #line += "%d "
                 line += "%d1 "
             else:
-                #line += "%d{{1,{}}} ".format(rept)
                 line += "%d{} ".format(rept)
         elif new_line[index] == "%w":
             rept = 1
@@ -133,10 +131,8 @@ def regex_maker(line:str, key_words:list, ex_key_words:list=[]) -> str:
                 rept += 1
                 index += 1
             if rept == 1:
-                #line += "%w "
                 line += "%w1 "
             else:
-                #line += "%w{{1,{}}} ".format(rept)
                 line += "%w{} ".format(rept)
         elif new_line[index] == "_":
             break
