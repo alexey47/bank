@@ -8,8 +8,6 @@ from sklearn.cluster import KMeans
 from math import ceil
 from difflib import SequenceMatcher
 
-now = datetime.now().strftime("%Y%m%d%H%M%S")
-
 #region Functions
 # Подготовка строк к векторизации
 def preprocessing(line:str):
@@ -18,12 +16,11 @@ def preprocessing(line:str):
     return line
 
 # Кластеризация
-def kmeans_clustering(dataset:list, n_clusters:int, save_to_file:bool=False) -> list:
+def kmeans_clustering(dataset:list, n_clusters:int) -> list:
     r""" Функция кластеризации набора данных
     Параметры:
         dataset - список данных
         n_clusters - количество кластеров
-        save_to_file - сохранять ли кластеры в файлы?
 
     Возвращает:
         Список кластеров
@@ -41,15 +38,6 @@ def kmeans_clustering(dataset:list, n_clusters:int, save_to_file:bool=False) -> 
             clusters[kmeans.labels_[index]] = [dataset[index]]
         else:
             clusters[kmeans.labels_[index]].append(dataset[index])
-
-    # Сохранение кластеров по своим файлам
-    if save_to_file == True:
-        os.makedirs("Data\\Data_{}\\Clusters".format(now), exist_ok=True)
-        for cluster_indx in range(len(clusters)):
-            file = open("Data\\Data_{}\\Clusters\\cluster_{}.txt".format(now, cluster_indx), "w", encoding = "utf-8")
-            for line in clusters[cluster_indx]:
-                file.write("{}\n".format(line))
-            file.close()
 
     return clusters
 
@@ -256,22 +244,26 @@ def regex_combiner(templates:list) -> list:
     return regex_postprocessing(tmp_templates)
 #endregion
 
-
-def main(argv):
-    if len(argv) < 3:
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
         print("Missing args")
-        print("Try Bank.py {dataset_path} {number_of_clusters}")
-        return
+        print("Try Bank.py [dataset_path] [number_of_clusters] [destination_path]")
+        exit()
 
     print("Start.")
-    
+
+    dataset_path = sys.argv[1]
+    n_clusters = sys.argv[2]
+    destination_path = sys.argv[3]
+    time = datetime.now().strftime("%Y%m%d%H%M%S")
+
+    # Кластеризация
     print("Clustering.")
-    dataset = open(argv[1], encoding = "utf-8").read().split("\n")
-    clusters = kmeans_clustering(dataset, int(argv[2]))
+    dataset = open(dataset_path, encoding = "utf-8").read().split("\n")
+    clusters = kmeans_clustering(dataset, int(n_clusters))
 
     # Шаблонизация
     print("Creating templates.")
-    os.makedirs("Data\\Data_{}\\Templates".format(now), exist_ok=True)
     all_templates = []
     for i, cluster in enumerate(clusters):
         print("\tCluster [{} / {}]:\t0%   ".format(i + 1, len(clusters)), end = "\r")  # progress bar
@@ -285,22 +277,13 @@ def main(argv):
         templates = regex_combiner(templates)
         all_templates.extend(templates)
 
-        # Сохранение шаблонов по кластерам
-        file = open("Data\\Data_{}\\Templates\\cluster_{}.txt".format(now, i), "w", encoding = "utf-8")
-        for line in templates:
-            file.write("({})-\t{}\n".format(line[1], line[0]))
-        file.close()
         print("\tCluster [{} / {}]:\t100% ".format(i + 1, len(clusters)), end = "\r")  # progress bar
 
     # Сохранение всех шаблонов в один файл
-    file = open("Data\\Data_{0}\\templates_{0}.txt".format(now), "w", encoding = "utf-8")
+    os.makedirs("{0}".format(destination_path, time), exist_ok=True)
+    file = open("{0}\\templates_{1}.txt".format(destination_path, time), "w", encoding = "utf-8")
     for line in all_templates:
         file.write("({})-\t{}\n".format(line[1], line[0]))
     file.close()
 
-    print()
-    print("Done.")
-
-#main(sys.argv)
-main(["", "Xmpls\\sms_dataset_10000.txt", 28])
-
+    print("\nDone.")
